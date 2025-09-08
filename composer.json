@@ -1,0 +1,61 @@
+{
+  "name": "pt/wechatpay-php",
+  "version": "0.0.1",
+  "description": "[A]Sync Chainable WeChatPay v2&v3's OpenAPI SDK for PHP - Compatible with PHP 5.6+",
+  "type": "library",
+  "keywords": [
+    "wechatpay",
+    "openapi-chainable",
+    "xml-parser",
+    "xml-builder",
+    "aes-ecb",
+    "aes-gcm",
+    "rsa-oaep",
+    "php56",
+    "php7",
+    "php8"
+  ],
+  "authors": [
+    {
+      "name": "ethenoscar2011",
+      "homepage": "https://github.com/pt-team"
+    }
+  ],
+  "homepage": "https://pay.weixin.qq.com/",
+  "license": "Apache-2.0",
+  "require": {
+    "php": ">=5.6.0",
+    "ext-curl": "*",
+    "ext-libxml": "*",
+    "ext-openssl": "*",
+    "ext-simplexml": "*",
+    "defuse/php-encryption": "^2.4",
+    "guzzlehttp/guzzle": "^6.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^5.7",
+    "squizlabs/php_codesniffer": "^2.9 || ^3.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "PtWeChatPay\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "PtWeChatPay\\Tests\\": "tests/"
+    }
+  },
+  "bin": [
+    "bin/CertificateDownloader.php"
+  ],
+  "scripts": {
+    "v3-certificates": "bin/CertificateDownloader.php",
+    "test": "/usr/bin/php56 ./vendor/bin/phpunit --colors=always tests/"
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
