@@ -42,7 +42,7 @@
 推荐使用 PHP 包管理工具 [Composer](https://getcomposer.org/) 安装 SDK：
 
 ```shell
-composer require pt/wechatpay-php
+composer require ethenoscar2011/pt-wechatpay-php
 ```
 
 ## 开始
