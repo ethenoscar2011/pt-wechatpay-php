@@ -82,8 +82,8 @@ class AesGcm implements AesInterface
 
             return base64_encode($ciphertext.$tag);
         } else {
-            // Use custom GCM implementation for PHP 5.6
-            return self::encryptCustomGcm($plaintext, $key, $iv, $aad);
+            // Use spomky-labs/php-aes-gcm for PHP 5.6+ compatibility
+            return self::encryptWithSpomkyGcm($plaintext, $key, $iv, $aad);
         }
     }
 
@@ -92,7 +92,7 @@ class AesGcm implements AesInterface
      *
      * @param string $ciphertext - The base64-encoded ciphertext.
      * @param string $key - The secret key, 32 bytes string.
-     * @param string $iv - The initialization vector, 16 bytes string.
+     * @param string $iv - The initialization vector, 12 bytes string for GCM.
      * @param string $aad - The additional authenticated data, maybe empty string.
      *
      * @return string - The utf-8 plaintext.
@@ -121,13 +121,13 @@ class AesGcm implements AesInterface
 
             return $plaintext;
         } else {
-            // Use custom GCM implementation for PHP 5.6
-            return self::decryptCustomGcm($ciphertext, $key, $iv, $aad);
+            // Use spomky-labs/php-aes-gcm for PHP 5.6+ compatibility
+            return self::decryptWithSpomkyGcm($ciphertext, $key, $iv, $aad);
         }
     }
 
     /**
-     * Custom GCM encryption implementation for PHP 5.6 compatibility
+     * GCM encryption implementation using spomky-labs/php-aes-gcm for PHP 5.6+ compatibility
      *
      * @param string $plaintext
      * @param string $key
@@ -135,23 +135,31 @@ class AesGcm implements AesInterface
      * @param string $aad
      * @return string
      */
-    private static function encryptCustomGcm($plaintext, $key, $iv, $aad)
+    private static function encryptWithSpomkyGcm($plaintext, $key, $iv, $aad)
     {
-        // Use AES-256-CTR for encryption (compatible with PHP 5.6)
-        $ciphertext = openssl_encrypt($plaintext, 'aes-256-ctr', $key, OPENSSL_RAW_DATA, $iv);
-
-        if (false === $ciphertext) {
-            throw new UnexpectedValueException('Encrypting the input $plaintext failed, please checking your $key and $iv whether or nor correct.');
+        // For GCM, IV should be 12 bytes, but we need to handle different lengths
+        if (strlen($iv) < 12) {
+            // Pad IV to 12 bytes if it's shorter
+            $iv = str_pad($iv, 12, "\0");
+        } elseif (strlen($iv) > 12) {
+            // Truncate IV to 12 bytes if it's longer
+            $iv = substr($iv, 0, 12);
         }
-
-        // Generate authentication tag using HMAC-SHA256
-        $tag = self::generateGcmTag($ciphertext, $aad, $iv, $key);
-
-        return base64_encode($ciphertext.$tag);
+        
+        try {
+            // Use spomky-labs/php-aes-gcm for encryption
+            $result = \AESGCM\AESGCM::encrypt($key, $iv, $plaintext, $aad, 128);
+            $ciphertext = $result[0];
+            $authTag = $result[1];
+            
+            return base64_encode($ciphertext . $authTag);
+        } catch (\Exception $e) {
+            throw new UnexpectedValueException('Encrypting the input $plaintext failed: ' . $e->getMessage());
+        }
     }
 
     /**
-     * Custom GCM decryption implementation for PHP 5.6 compatibility
+     * GCM decryption implementation using spomky-labs/php-aes-gcm for PHP 5.6+ compatibility
      *
      * @param string $ciphertext
      * @param string $key
@@ -159,27 +167,35 @@ class AesGcm implements AesInterface
      * @param string $aad
      * @return string
      */
-    private static function decryptCustomGcm($ciphertext, $key, $iv, $aad)
+    private static function decryptWithSpomkyGcm($ciphertext, $key, $iv, $aad)
     {
         $ciphertext = base64_decode($ciphertext);
-        $authTag = substr($ciphertext, 0 - static::BLOCK_SIZE);
-        $actualCiphertext = substr($ciphertext, 0, 0 - static::BLOCK_SIZE);
-
-        // Verify authentication tag
-        $expectedTag = self::generateGcmTag($actualCiphertext, $aad, $iv, $key);
-
-        if (!self::secureCompare($authTag, $expectedTag)) {
-            throw new UnexpectedValueException('Authentication tag verification failed.');
+        
+        // For GCM, IV should be 12 bytes, but we need to handle different lengths
+        if (strlen($iv) < 12) {
+            // Pad IV to 12 bytes if it's shorter
+            $iv = str_pad($iv, 12, "\0");
+        } elseif (strlen($iv) > 12) {
+            // Truncate IV to 12 bytes if it's longer
+            $iv = substr($iv, 0, 12);
         }
-
-        // Decrypt using AES-256-CTR
-        $plaintext = openssl_decrypt($actualCiphertext, 'aes-256-ctr', $key, OPENSSL_RAW_DATA, $iv);
-
-        if (false === $plaintext) {
-            throw new UnexpectedValueException('Decrypting the input $ciphertext failed, please checking your $key and $iv whether or nor correct.');
+        
+        // Extract auth tag (last 16 bytes) and actual ciphertext
+        $authTag = substr($ciphertext, -16);
+        $actualCiphertext = substr($ciphertext, 0, -16);
+        
+        try {
+            // Use spomky-labs/php-aes-gcm for decryption
+            $plaintext = \AESGCM\AESGCM::decrypt($key, $iv, $actualCiphertext, $aad, $authTag);
+            
+            if (false === $plaintext) {
+                throw new UnexpectedValueException('Decrypting the input $ciphertext failed, please checking your $key and $iv whether or nor correct.');
+            }
+            
+            return $plaintext;
+        } catch (\Exception $e) {
+            throw new UnexpectedValueException('Decrypting the input $ciphertext failed: ' . $e->getMessage());
         }
-
-        return $plaintext;
     }
 
     /**
